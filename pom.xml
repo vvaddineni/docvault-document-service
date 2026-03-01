@@ -48,10 +48,14 @@
     <!-- Azure Identity (Managed Identity / DefaultAzureCredential) -->
     <dependency><groupId>com.azure</groupId><artifactId>azure-identity</artifactId></dependency>
 
-    <!-- Azure Cosmos DB (metadata) -->
-    <dependency><groupId>com.azure</groupId><artifactId>azure-cosmos</artifactId></dependency>
+    <!-- Azure Cosmos DB — Spring Data integration (includes azure-cosmos SDK transitively) -->
+    <dependency>
+      <groupId>com.azure.spring</groupId>
+      <artifactId>spring-cloud-azure-starter-data-cosmos</artifactId>
+      <version>5.9.1</version>
+    </dependency>
 
-    <!-- Azure Spring Boot integration -->
+    <!-- Azure Blob Storage — Spring Boot integration -->
     <dependency>
       <groupId>com.azure.spring</groupId>
       <artifactId>spring-cloud-azure-starter-storage-blob</artifactId>
