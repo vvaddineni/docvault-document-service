@@ -3,7 +3,6 @@ package com.docvault.repository;
 import com.docvault.dto.StatsDto;
 import com.docvault.model.Document;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 
 import java.time.OffsetDateTime;

@@ -13,7 +13,6 @@ import org.springframework.stereotype.Component;
 
 import java.time.OffsetDateTime;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Component
 public class DocumentRepositoryCustomImpl implements DocumentRepositoryCustom {

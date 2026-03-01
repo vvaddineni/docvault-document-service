@@ -1,14 +1,10 @@
 package com.docvault.repository;
 
 import com.azure.spring.data.cosmos.repository.CosmosRepository;
-import com.docvault.dto.StatsDto;
 import com.docvault.model.Document;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Repository;
-
-import java.time.OffsetDateTime;
-import java.util.Optional;
 
 /**
  * Cosmos DB repository for Document metadata.
