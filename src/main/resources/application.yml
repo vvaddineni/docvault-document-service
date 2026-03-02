@@ -23,6 +23,11 @@ spring:
 server:
   port: 8080
 
+# Search Service URL for async post-upload indexing
+search:
+  service:
+    url: ${SEARCH_SERVICE_URL:}
+
 # ── Azure Blob Storage (custom AzureStorageProperties) ────────
 azure:
   storage:

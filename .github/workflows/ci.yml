@@ -76,3 +76,11 @@ jobs:
           registryUrl: ${{ env.REGISTRY }}
           registryUsername: ${{ github.actor }}
           registryPassword: ${{ secrets.GHCR_TOKEN }}
+
+      - name: Set service URLs on Document Service Container App
+        run: |
+          az containerapp update \
+            --name docvault-document-service \
+            --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+            --set-env-vars \
+              SEARCH_SERVICE_URL=${{ secrets.SEARCH_SERVICE_URL }}

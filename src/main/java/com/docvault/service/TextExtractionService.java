@@ -8,6 +8,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 
 /**
@@ -36,6 +37,19 @@ public class TextExtractionService {
             return text;
         } catch (IOException | TikaException e) {
             log.warn("[Tika] Extraction failed for {}: {}", file.getOriginalFilename(), e.getMessage());
+            return "";
+        }
+    }
+
+    public String extractFromBytes(byte[] bytes, String filename, String contentType) {
+        try {
+            Metadata meta = new Metadata();
+            if (contentType != null) meta.set(Metadata.CONTENT_TYPE, contentType);
+            String text = tika.parseToString(new ByteArrayInputStream(bytes), meta, MAX_LEN);
+            log.debug("[Tika] Extracted {} chars from {}", text.length(), filename);
+            return text;
+        } catch (IOException | TikaException e) {
+            log.warn("[Tika] Extraction failed for {}: {}", filename, e.getMessage());
             return "";
         }
     }

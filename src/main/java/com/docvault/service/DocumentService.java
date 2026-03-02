@@ -6,28 +6,37 @@ import com.docvault.model.Document;
 import com.docvault.repository.DocumentRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.time.OffsetDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * Orchestrates the full document lifecycle:
- *   upload → blob store → text extract → Cosmos metadata → AI Search index
+ *   upload → blob store → Cosmos metadata → (async) text extract → AI Search index
  */
 @Service
 public class DocumentService {
 
     private static final Logger log = LoggerFactory.getLogger(DocumentService.class);
 
-    private final BlobStorageService   blobService;
-    private final DocumentRepository   repository;
+    @Value("${search.service.url:}")
+    private String searchServiceUrl;
+
+    private final BlobStorageService    blobService;
+    private final DocumentRepository    repository;
     private final TextExtractionService textExtractionService;
+    private final RestTemplate          restTemplate = new RestTemplate();
 
     public DocumentService(BlobStorageService blobService,
                            DocumentRepository repository,
@@ -48,15 +57,7 @@ public class DocumentService {
                 meta.getAuthor(),
                 meta.getDepartment() != null ? meta.getDepartment() : "General");
 
-        // 2. Extract text for search indexing
-        String extractedText = "";
-        try {
-            extractedText = textExtractionService.extract(file);
-        } catch (Exception e) {
-            log.warn("[DocumentService] Text extraction failed for {}: {}", docId, e.getMessage());
-        }
-
-        // 3. Build and persist metadata record (Cosmos DB)
+        // 2. Build and persist metadata record (Cosmos DB)
         Document doc = new Document();
         doc.setId(docId);
         doc.setTitle(meta.getTitle() != null ? meta.getTitle() : file.getOriginalFilename());
@@ -76,18 +77,48 @@ public class DocumentService {
         doc.setLastAccessedAt(OffsetDateTime.now());
 
         Document saved = repository.save(doc);
-
-        // 4. Index in Azure AI Search (async — non-blocking)
-        // In production this should be via a Service Bus message or background task
-        // For simplicity, calling synchronously here
-        try {
-            // searchIndexingService.index(saved, extractedText);
-        } catch (Exception e) {
-            log.warn("[DocumentService] Search indexing failed for {}: {}", docId, e.getMessage());
-        }
-
         log.info("[DocumentService] Uploaded: docId={} tier=Hot", docId);
-        return toDto(saved);
+
+        // 3. Extract text and index in AI Search — fire-and-forget (non-blocking)
+        // Read file bytes now (MultipartFile stream may not be re-readable after request ends)
+        byte[] fileBytes;
+        try { fileBytes = file.getBytes(); } catch (Exception e) { fileBytes = new byte[0]; }
+        final byte[] bytes = fileBytes;
+        final DocumentDto dto = toDto(saved);
+
+        CompletableFuture.runAsync(() -> {
+            String extractedText = "";
+            try {
+                extractedText = textExtractionService.extractFromBytes(bytes, file.getOriginalFilename(), file.getContentType());
+            } catch (Exception e) {
+                log.warn("[DocumentService] Text extraction failed for {}: {}", docId, e.getMessage());
+            }
+            indexInSearch(dto, extractedText);
+        });
+
+        return dto;
+    }
+
+    private void indexInSearch(DocumentDto doc, String extractedText) {
+        if (searchServiceUrl == null || searchServiceUrl.isBlank()) return;
+        try {
+            Map<String, Object> indexDoc = new HashMap<>();
+            indexDoc.put("id",            doc.getId());
+            indexDoc.put("title",         doc.getTitle());
+            indexDoc.put("author",        doc.getAuthor());
+            indexDoc.put("department",    doc.getDepartment());
+            indexDoc.put("description",   doc.getDescription());
+            indexDoc.put("tags",          doc.getTags());
+            indexDoc.put("mimeType",      doc.getMimeType());
+            indexDoc.put("storageTier",   doc.getStorageTier());
+            indexDoc.put("fileSizeBytes", doc.getFileSizeBytes());
+            indexDoc.put("uploadedAt",    doc.getUploadedAt() != null ? doc.getUploadedAt().toString() : null);
+            indexDoc.put("extractedText", extractedText);
+            restTemplate.postForEntity(searchServiceUrl + "/v1/search/index", indexDoc, Void.class);
+            log.info("[DocumentService] Indexed docId={} in AI Search", doc.getId());
+        } catch (Exception e) {
+            log.warn("[DocumentService] Search indexing failed for {}: {}", doc.getId(), e.getMessage());
+        }
     }
 
     // ── List ──────────────────────────────────────────────────────────────
