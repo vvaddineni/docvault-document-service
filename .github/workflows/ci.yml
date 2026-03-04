@@ -80,17 +80,21 @@ jobs:
           registryPassword: ${{ secrets.GHCR_TOKEN }}
           targetPort: 8080
 
-      - name: Set service URLs on Document Service Container App
+      - name: Set env vars on Document Service Container App
         env:
+          STORAGE_ACCOUNT: ${{ secrets.AZURE_STORAGE_ACCOUNT_NAME }}
+          STORAGE_KEY: ${{ secrets.AZURE_STORAGE_ACCOUNT_KEY }}
+          COSMOS_ENDPOINT: ${{ secrets.AZURE_COSMOS_ENDPOINT }}
+          COSMOS_KEY: ${{ secrets.AZURE_COSMOS_KEY }}
           SRCH_URL: ${{ secrets.SEARCH_SERVICE_URL }}
         run: |
-          if [ -n "$SRCH_URL" ]; then
-            az containerapp update \
-              --name docvault-document-service \
-              --resource-group docvault-rg \
-              --set-env-vars \
-                SEARCH_SERVICE_URL="$SRCH_URL"
-            echo "SEARCH_SERVICE_URL updated on Document Service Container App"
-          else
-            echo "::warning::SEARCH_SERVICE_URL secret not set — skipping env var update"
-          fi
+          az containerapp update \
+            --name docvault-document-service \
+            --resource-group docvault-rg \
+            --set-env-vars \
+              AZURE_STORAGE_ACCOUNT_NAME="$STORAGE_ACCOUNT" \
+              AZURE_STORAGE_ACCOUNT_KEY="$STORAGE_KEY" \
+              AZURE_COSMOS_ENDPOINT="$COSMOS_ENDPOINT" \
+              AZURE_COSMOS_KEY="$COSMOS_KEY" \
+              SEARCH_SERVICE_URL="$SRCH_URL"
+          echo "Env vars updated on Document Service Container App"
