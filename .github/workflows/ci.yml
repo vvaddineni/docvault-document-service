@@ -76,6 +76,7 @@ jobs:
           registryUrl: ${{ env.REGISTRY }}
           registryUsername: ${{ github.actor }}
           registryPassword: ${{ secrets.GHCR_TOKEN }}
+          targetPort: 8080
 
       - name: Set service URLs on Document Service Container App
         env:
