@@ -88,13 +88,17 @@ jobs:
           COSMOS_KEY: ${{ secrets.AZURE_COSMOS_KEY }}
           SRCH_URL: ${{ secrets.SEARCH_SERVICE_URL }}
         run: |
-          az containerapp update \
-            --name docvault-document-service \
-            --resource-group docvault-rg \
-            --set-env-vars \
-              AZURE_STORAGE_ACCOUNT_NAME="$STORAGE_ACCOUNT" \
-              AZURE_STORAGE_ACCOUNT_KEY="$STORAGE_KEY" \
-              AZURE_COSMOS_ENDPOINT="$COSMOS_ENDPOINT" \
-              AZURE_COSMOS_KEY="$COSMOS_KEY" \
-              SEARCH_SERVICE_URL="$SRCH_URL"
-          echo "Env vars updated on Document Service Container App"
+          if [ -n "$STORAGE_ACCOUNT" ] && [ -n "$STORAGE_KEY" ] && [ -n "$COSMOS_ENDPOINT" ] && [ -n "$COSMOS_KEY" ]; then
+            az containerapp update \
+              --name docvault-document-service \
+              --resource-group docvault-rg \
+              --set-env-vars \
+                AZURE_STORAGE_ACCOUNT_NAME="$STORAGE_ACCOUNT" \
+                AZURE_STORAGE_ACCOUNT_KEY="$STORAGE_KEY" \
+                AZURE_COSMOS_ENDPOINT="$COSMOS_ENDPOINT" \
+                AZURE_COSMOS_KEY="$COSMOS_KEY" \
+                SEARCH_SERVICE_URL="$SRCH_URL"
+            echo "Env vars updated on Document Service Container App"
+          else
+            echo "::warning::Azure credentials secrets not set — skipping env var update to preserve existing values"
+          fi
