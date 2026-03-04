@@ -87,7 +87,7 @@ jobs:
           if [ -n "$SRCH_URL" ]; then
             az containerapp update \
               --name docvault-document-service \
-              --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+              --resource-group docvault-rg \
               --set-env-vars \
                 SEARCH_SERVICE_URL="$SRCH_URL"
             echo "SEARCH_SERVICE_URL updated on Document Service Container App"
