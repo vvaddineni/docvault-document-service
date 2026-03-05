@@ -84,7 +84,7 @@ public class BlobStorageService {
                                            String title, String author, String department)
             throws IOException {
 
-        String blobName = buildBlobName(docId, file.getOriginalFilename());
+        String blobName = buildBlobName(department, docId, file.getOriginalFilename());
         String container = props.getContainer().getHot();
 
         log.info("[Blob] Uploading: docId={} blobName={} size={}",
@@ -262,10 +262,12 @@ public class BlobStorageService {
         return client;
     }
 
-    private String buildBlobName(String docId, String filename) {
-        String safe = (filename != null ? filename : "document")
+    private String buildBlobName(String department, String docId, String filename) {
+        String safeDept = (department != null ? department : "General")
                 .replaceAll("[^a-zA-Z0-9._\\-]", "_");
-        return docId + "/" + safe;
+        String safeFile = (filename != null ? filename : "document")
+                .replaceAll("[^a-zA-Z0-9._\\-]", "_");
+        return safeDept + "/" + docId + "_" + safeFile;
     }
 
     private String sanitiseMetaValue(String value) {
