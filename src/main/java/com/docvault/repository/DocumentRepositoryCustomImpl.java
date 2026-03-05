@@ -164,7 +164,8 @@ public class DocumentRepositoryCustomImpl implements DocumentRepositoryCustom {
 
     @Override
     public List<Document> findHotDocsOlderThan(OffsetDateTime cutoff) {
-        String sql = "SELECT * FROM c WHERE c.storageTier = 'Hot' AND c.uploadedAt < @cutoff";
+        // Include docs where storageTier is 'Hot' OR null/undefined (treat missing as Hot)
+        String sql = "SELECT * FROM c WHERE (c.storageTier = 'Hot' OR IS_NULL(c.storageTier) OR NOT IS_DEFINED(c.storageTier)) AND c.uploadedAt < @cutoff";
         SqlParameter param = new SqlParameter("@cutoff", cutoff.toString());
         List<Document> items = container()
                 .queryItems(new SqlQuerySpec(sql, List.of(param)),
