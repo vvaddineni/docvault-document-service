@@ -88,7 +88,15 @@ public class DocumentService {
         doc.setUploadedAt(OffsetDateTime.now());
         doc.setLastAccessedAt(OffsetDateTime.now());
 
-        Document saved = repository.save(doc);
+        Document saved;
+        try {
+            saved = repository.save(doc);
+        } catch (Exception e) {
+            log.error("[DocumentService] Cosmos save failed for docId={}; rolling back blob", docId);
+            try { blobService.deleteBlob(blob.getContainerName(), blob.getBlobName()); }
+            catch (Exception re) { log.error("[DocumentService] Blob rollback failed for {}: {}", docId, re.getMessage()); }
+            throw new RuntimeException("Failed to save document metadata: " + e.getMessage(), e);
+        }
         log.info("[DocumentService] Uploaded: docId={} tier=Hot", docId);
 
         // 3. Extract text and index in AI Search — fire-and-forget (non-blocking)
@@ -121,7 +129,7 @@ public class DocumentService {
             indexDoc.put("storageTier",   doc.getStorageTier());
             indexDoc.put("fileSizeBytes", doc.getFileSizeBytes());
             indexDoc.put("uploadedAt",    doc.getUploadedAt() != null ? doc.getUploadedAt().toString() : null);
-            indexDoc.put("extractedText", extractedText);
+            if (extractedText != null) indexDoc.put("extractedText", extractedText);
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
             restTemplate.postForEntity(searchServiceUrl + "/v1/search/index",
@@ -202,7 +210,10 @@ public class DocumentService {
         if (dto.getTags()        != null) doc.setTags(dto.getTags());
         if (dto.getDescription() != null) doc.setDescription(dto.getDescription());
 
-        return toDto(repository.save(doc));
+        DocumentDto saved = toDto(repository.save(doc));
+        // Re-index metadata only (null extractedText preserves existing indexed content)
+        CompletableFuture.runAsync(() -> indexInSearch(saved, null));
+        return saved;
     }
 
     // ── Delete ────────────────────────────────────────────────────────────
@@ -212,8 +223,18 @@ public class DocumentService {
 
         blobService.deleteBlob(doc.getContainerName(), doc.getBlobName());
         repository.deleteById(id);
-        // searchIndexingService.delete(id);
+        deleteFromSearch(id);
         log.info("[DocumentService] Deleted: docId={}", id);
+    }
+
+    private void deleteFromSearch(String id) {
+        if (searchServiceUrl == null || searchServiceUrl.isBlank()) return;
+        try {
+            restTemplate.delete(searchServiceUrl + "/v1/search/" + id);
+            log.info("[DocumentService] Removed docId={} from AI Search", id);
+        } catch (Exception e) {
+            log.warn("[DocumentService] Search delete failed for {}: {}", id, e.getMessage());
+        }
     }
 
     // ── Bulk re-index ─────────────────────────────────────────────────────
